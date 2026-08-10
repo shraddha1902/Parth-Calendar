@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aashi &amp; Parth — Work Calendar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f4f7;
+    --surface: #ffffff;
+    --surface-alpha: rgba(255,255,255,.78);
+    --ink: #1d1d1f;
+    --ink-soft: #6e6e73;
+    --ink-faint: #a1a1a6;
+    --accent: #0071e3;
+    --accent-ink: #ffffff;
+    --accent-soft: #eaf3ff;
+    --today: #ff3b30;
+    --class-color: #5e5ce6;
+    --class-soft: #eeecfd;
+    --assigned: #ff9500;
+    --border: rgba(0,0,0,.07);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.045);
+    --shadow-md: 0 16px 32px -12px rgba(0,0,0,.14);
+    --shadow-lg: 0 24px 60px -18px rgba(0,0,0,.22);
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --radius-sm: 11px;
+    --ease: cubic-bezier(.4,0,.2,1);
+    /* Approximates a critically-damped spring (damping 1.0) for discrete, non-gesture
+       transitions — settles quickly with no overshoot, per Apple's "Designing Fluid
+       Interfaces" defaults. Used instead of a runtime spring library since these are
+       click-triggered, not drag-tracked. */
+    --spring: cubic-bezier(.22,1,.36,1);
+    --press: transform .1s ease-out;
+    --font-ui: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-display: 'Fraunces', Georgia, serif;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .topbar, .gate-card, .dv-overlay { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+    .topbar { background: #fdfdfd !important; }
+    .gate-card { background: #fdfdfd !important; }
+    .dv-overlay { background: rgba(20,20,24,.65) !important; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--font-ui);
+    color: var(--ink);
+    background:
+      radial-gradient(900px 500px at 88% -8%, rgba(94,92,230,.10), transparent 60%),
+      radial-gradient(700px 460px at -6% 8%, rgba(0,113,227,.09), transparent 55%),
+      var(--bg);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Gate screens (PIN + role) ---------- */
+  .gate {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .gate-card {
+    background: var(--surface-alpha);
+    backdrop-filter: blur(24px) saturate(1.4);
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    border: 1px solid rgba(255,255,255,.6);
+    border-radius: var(--radius-lg);
+    padding: 40px 34px;
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+    box-shadow: var(--shadow-lg);
+    animation: riseIn .5s var(--spring);
+  }
+  /* "Materialize, don't just fade" — blur resolves alongside scale/opacity so glass
+     surfaces read as arriving material, not a flat cross-fade. */
+  @keyframes riseIn {
+    from { opacity: 0; transform: translateY(14px) scale(.97); filter: blur(6px); }
+    to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+  @keyframes shake {
+    10%, 90% { transform: translateX(-1px); }
+    20%, 80% { transform: translateX(2px); }
+    30%, 50%, 70% { transform: translateX(-5px); }
+    40%, 60% { transform: translateX(5px); }
+  }
+  .gate-card.shake { animation: shake .5s; }
+  .gate-mark {
+    width: 52px; height: 52px;
+    margin: 0 auto 18px;
+    border-radius: 15px;
+    background: linear-gradient(145deg, var(--accent), #4aa3ff);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 22px -8px rgba(0,113,227,.55);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 22px;
+    color: #fff;
+  }
+  .gate-card h1 {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 26px;
+    line-height: 1.1;
+    margin: 0 0 6px;
+    color: var(--ink);
+    letter-spacing: -.02em;
+  }
+  .gate-card p.sub {
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    margin: 0 0 26px;
+    line-height: 1.5;
+  }
+  .gate-card input[type="password"] {
+    width: 100%;
+    font-size: 26px;
+    letter-spacing: 10px;
+    text-align: center;
+    padding: 14px 8px 14px 18px;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    margin-bottom: 14px;
+    font-family: var(--font-ui);
+    background: rgba(255,255,255,.7);
+    color: var(--ink);
+    transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
+  }
+  .gate-card input[type="password"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  .gate-card button.primary {
+    width: 100%;
+    background: linear-gradient(145deg, var(--accent), #0d63c9);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 13px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    box-shadow: 0 10px 20px -8px rgba(0,113,227,.5);
+    transition: transform .15s var(--ease), box-shadow .15s var(--ease);
+  }
+  .gate-card button.primary:hover { transform: translateY(-1px); box-shadow: 0 14px 26px -8px rgba(0,113,227,.6); }
+  .gate-card button.primary:active { transform: scale(.97); transition: var(--press); box-shadow: 0 6px 14px -6px rgba(0,113,227,.5); }
+  .gate-error {
+    color: var(--today);
+    font-weight: 600;
+    font-size: 12.5px;
+    margin-bottom: 10px;
+    min-height: 14px;
+  }
+  .role-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .role-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    background: rgba(255,255,255,.6);
+    font-size: 15.5px;
+    font-weight: 700;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    color: var(--ink);
+    text-align: left;
+    transition: border-color .2s var(--spring), background .2s var(--spring), box-shadow .2s var(--spring), transform .2s var(--spring);
+  }
+  .role-btn:active { transform: scale(.98); transition: var(--press); }
+  .role-btn .avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 17px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .role-btn[data-role="aashi"] .avatar { background: linear-gradient(145deg,var(--accent),#4aa3ff); }
+  .role-btn[data-role="parth"] .avatar { background: linear-gradient(145deg,var(--class-color),#9a90f5); }
+  .role-btn:hover { border-color: transparent; background: #fff; box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
+  /* ---------- App shell ---------- */
+  #app { display: none; }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--surface-alpha);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    border-bottom: 1px solid transparent;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.7); /* bright top edge: light catching the material */
+    padding: 18px 28px;
+    transition: border-color .3s var(--ease), box-shadow .3s var(--ease);
+  }
+  /* Scroll-edge effect: the divider only appears once content is actually
+     scrolling under the floating header — not a permanent hard line. */
+  .topbar.scrolled {
+    border-bottom-color: var(--border);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 10px 20px -14px rgba(0,0,0,.22);
+  }
+  .header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    max-width: 1400px;
+    margin: 0 auto 16px;
+  }
+  .header h1 {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 26px;
+    line-height: 1.1;
+    margin: 0;
+    letter-spacing: -.02em;
+    color: var(--ink);
+  }
+  .header .sub-label {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 3px;
+  }
+  .who-pill {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: rgba(0,0,0,.035);
+    border: 1px solid var(--border);
+    padding: 6px 8px 6px 6px;
+    border-radius: 100px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .who-pill .mini-avatar {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(145deg,var(--accent),#4aa3ff);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 11px;
+  }
+  .who-pill strong { color: var(--ink); font-weight: 700; }
+  .who-pill a {
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .who-pill a:hover { text-decoration: underline; }
+
+  .tabs {
+    display: inline-flex;
+    gap: 2px;
+    background: rgba(0,0,0,.045);
+    padding: 3px;
+    border-radius: 100px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .tab {
+    padding: 8px 18px;
+    border-radius: 100px;
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    border: none;
+    transition: background .3s var(--spring), color .3s var(--spring), box-shadow .3s var(--spring), transform .1s ease-out;
+  }
+  .tab.active { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }
+  .tab:not(.active):hover { color: var(--ink); }
+  .tab:active { transform: scale(.96); }
+
+  .content { max-width: 1400px; margin: 0 auto; padding: 24px 28px 60px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 12px;
+  }
+  .day {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    min-height: 158px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow .3s var(--spring), transform .3s var(--spring), border-color .3s var(--spring);
+  }
+  .day:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .day.today { background: var(--accent-soft); border-color: rgba(0,113,227,.18); }
+  .day.drag-over { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .day.past { opacity: .55; }
+  .day.past:hover { transform: none; box-shadow: var(--shadow-sm); }
+  .day.settle { animation: settlePulse .5s var(--spring); }
+  @keyframes settlePulse {
+    0% { box-shadow: 0 0 0 4px var(--accent-soft); }
+    100% { box-shadow: 0 0 0 0 rgba(0,113,227,0); }
+  }
+
+  .day-enter { animation: cardIn .5s var(--spring) backwards; }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .day .weekday {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+  .day.today .weekday { color: var(--accent); }
+  .day .date-row { display: flex; align-items: center; gap: 6px; margin: 4px 0 10px; }
+  .day .datenum {
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .day.today .datenum {
+    width: 27px; height: 27px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--today);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 15px;
+    font-family: var(--font-ui);
+    font-weight: 800;
+  }
+
+  .events {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .event {
+    background: var(--accent-soft);
+    border-radius: 10px;
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    word-break: break-word;
+    cursor: grab;
+    flex-wrap: wrap;
+    position: relative;
+    transition: background .25s var(--spring), transform .15s var(--spring);
+  }
+  .event:active { cursor: grabbing; transform: scale(.985); }
+  .event.class { background: var(--class-soft); }
+  .event:hover { transform: translateX(1px); }
+
+  /* pointer-based drag: the real row dims in place, a floating clone tracks the pointer */
+  .event.drag-source-hidden { opacity: .28; }
+  .drag-ghost {
+    cursor: grabbing;
+    box-shadow: var(--shadow-lg);
+    opacity: .98;
+  }
+  .drag-ghost .icons { display: none; } /* no interactive icons on the floating clone */
+
+  /* custom checkbox — a snappier spring since checking a task is a direct tap-commit */
+  .chk-wrap { flex-shrink: 0; display: flex; align-items: center; margin-top: 1px; cursor: pointer; }
+  .chk-native { position: absolute; opacity: 0; width: 16px; height: 16px; margin: 0; cursor: pointer; }
+  .chk-visual {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 1.6px solid rgba(0,0,0,.22);
+    background: #fff;
+    display: block;
+    position: relative;
+    transition: background .2s var(--spring), border-color .2s var(--spring), transform .25s var(--spring);
+  }
+  .chk-native:active + .chk-visual { transform: scale(.85); }
+  .chk-native:checked + .chk-visual {
+    background: var(--accent);
+    border-color: var(--accent);
+    transform: scale(1.08);
+  }
+  .event.class .chk-native:checked + .chk-visual { background: var(--class-color); border-color: var(--class-color); }
+  .chk-visual::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 4.5px;
+    width: 4px; height: 8px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(40deg) scale(0);
+    transition: transform .25s var(--spring);
+  }
+  .chk-native:checked + .chk-visual::after { transform: rotate(40deg) scale(1); }
+
+  .time-badge {
+    flex-shrink: 0;
+    padding: 1px 7px;
+    border-radius: 100px;
+    background: rgba(0,113,227,.12);
+    font-size: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+  }
+  .event.class .time-badge { background: rgba(94,92,230,.14); color: var(--class-color); }
+
+  .event .body { flex: 1; min-width: 70px; }
+  .event .txt { display: block; font-weight: 500; color: var(--ink); }
+  .event .tag {
+    display: inline-block;
+    margin-top: 3px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    color: var(--assigned);
+    background: rgba(255,149,0,.12);
+    padding: 1px 6px;
+    border-radius: 100px;
+  }
+  .event.done { background: rgba(0,0,0,.035); }
+  .event.done .txt { text-decoration: line-through; color: var(--ink-faint); }
+  .event.done .time-badge { background: rgba(0,0,0,.06); color: var(--ink-faint); }
+
+  .event .icons { display: flex; gap: 6px; flex-shrink: 0; opacity: 0; transition: opacity .15s var(--ease); margin-left: auto; }
+  .event:hover .icons { opacity: 1; }
+  .event .del, .event .edit-icon {
+    cursor: pointer;
+    color: var(--ink-faint);
+    font-size: 12px;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 18px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    transition: all .15s var(--ease);
+  }
+  .event .del:hover { color: #fff; background: var(--today); }
+  .event .edit-icon:hover { color: #fff; background: var(--accent); }
+
+  .event.editing { background: #fff; box-shadow: var(--shadow-sm); border: 1px solid var(--border); flex-wrap: wrap; align-items: center; cursor: default; }
+  .event .inline-edit-time, .event .inline-edit-text {
+    font-size: 12px;
+    padding: 5px 8px;
+    border: 1.3px solid var(--border);
+    border-radius: 8px;
+    font-family: var(--font-ui);
+    background: #fafafa;
+  }
+  .event .inline-edit-time { width: 96px; }
+  .event .inline-edit-text { flex: 1; min-width: 100px; }
+  .event .inline-actions { display: flex; gap: 6px; width: 100%; justify-content: flex-end; margin-top: 2px; }
+  .event .inline-save, .event .inline-cancel {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 11px;
+    border-radius: 100px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    transition: var(--press);
+  }
+  .event .inline-save { background: var(--accent); color: #fff; }
+  .event .inline-cancel { background: rgba(0,0,0,.06); color: var(--ink-soft); }
+  .event .inline-save:active, .event .inline-cancel:active { transform: scale(.95); }
+
+  .add-btn {
+    font-size: 12px;
+    color: var(--ink-faint);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 2px;
+    text-align: left;
+    font-weight: 700;
+    font-family: var(--font-ui);
+    display: flex; align-items: center; gap: 5px;
+    transition: color .15s var(--ease), transform .1s ease-out;
+  }
+  .add-btn::before {
+    content: '+';
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    border: 1.4px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    line-height: 1;
+  }
+  .add-btn:hover { color: var(--accent); }
+  .add-btn:active { transform: scale(.95); }
+
+  .add-form { display: none; flex-direction: column; gap: 8px; margin-top: 6px; padding: 10px; background: rgba(0,0,0,.025); border-radius: 12px; }
+  .add-form.open { display: flex; animation: cardIn .3s var(--spring); }
+  .add-form input[type="text"], .add-form input[type="time"] {
+    font-size: 12.5px;
+    padding: 6px 8px;
+    border: 1.3px solid var(--border);
+    border-radius: 8px;
+    font-family: var(--font-ui);
+    width: 100%;
+    background: #fff;
+    transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+  }
+  .add-form input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .add-form .row { display: flex; gap: 6px; align-items: flex-end; }
+  .add-form .field { display: flex; flex-direction: column; gap: 3px; }
+  .add-form .field label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+  .add-form .field.time-field { flex-shrink: 0; width: 92px; }
+  .add-form .field.task-field { flex: 1; }
+
+  .type-toggle { display: inline-flex; gap: 2px; background: rgba(0,0,0,.05); padding: 2px; border-radius: 100px; align-self: flex-start; }
+  .type-btn {
+    border: none;
+    background: transparent;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 10.5px;
+    font-weight: 700;
+    font-family: var(--font-ui);
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: background .2s var(--spring), color .2s var(--spring), box-shadow .2s var(--spring);
+  }
+  .type-btn.active { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }
+  .type-btn:active { transform: scale(.95); }
+
+  .add-form .actions { display: flex; gap: 6px; margin-top: 2px; justify-content: flex-end; }
+  .add-form button.save, .add-form button.cancel {
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 6px 13px;
+    border-radius: 100px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    transition: transform .12s var(--ease);
+  }
+  .add-form .save { background: var(--accent); color: white; }
+  .add-form .cancel { background: rgba(0,0,0,.06); color: var(--ink-soft); }
+  .add-form button:hover { transform: translateY(-1px); }
+  .add-form button:active { transform: scale(.95); }
+  .empty-note { font-size: 11.5px; color: var(--ink-faint); font-style: italic; }
+
+  .date-row { cursor: pointer; }
+  .date-row:hover .datenum { opacity: .7; }
+
+  /* ---------- Day view: Google-Calendar-style hourly timeline ---------- */
+  .dv-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(20,20,24,.42);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 26px;
+  }
+  .dv-overlay.open { display: flex; animation: fadeBg .2s var(--spring); }
+  @keyframes fadeBg { from { opacity: 0; } to { opacity: 1; } }
+  /* Closing mirrors opening (same path, reversed) instead of vanishing instantly —
+     "if something disappears one way, we expect it to emerge from where it came." */
+  .dv-overlay.closing { animation: fadeBgOut .2s var(--spring) forwards; }
+  @keyframes fadeBgOut { from { opacity: 1; } to { opacity: 0; } }
+  .dv-overlay.closing .dv-modal { animation: sinkOut .2s var(--spring) forwards; }
+  @keyframes sinkOut {
+    from { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    to { opacity: 0; transform: translateY(10px) scale(.97); filter: blur(4px); }
+  }
+  .dv-modal {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    width: 100%; max-width: 660px;
+    max-height: 86vh;
+    display: flex; flex-direction: column;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    animation: riseIn .38s var(--spring);
+  }
+  .dv-header {
+    padding: 22px 26px 16px;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .dv-weekday { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); }
+  .dv-date { font-family: var(--font-display); font-style: italic; font-weight: 500; font-size: 25px; line-height: 1.1; letter-spacing: -.02em; color: var(--ink); margin-top: 2px; }
+  .dv-close {
+    width: 30px; height: 30px; border-radius: 50%; border: none;
+    background: rgba(0,0,0,.05); color: var(--ink-soft); font-size: 12px; cursor: pointer;
+    transition: background .2s var(--spring), color .2s var(--spring), transform .2s var(--spring); flex-shrink: 0;
+  }
+  .dv-close:hover { background: rgba(0,0,0,.09); color: var(--ink); transform: rotate(90deg); }
+  .dv-close:active { transform: scale(.9); }
+
+  .dv-allday { padding: 14px 26px; display: flex; flex-direction: column; gap: 7px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .dv-allday-label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 2px; }
+  .dv-allday-row {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--accent-soft);
+    border-radius: 9px;
+    padding: 6px 9px;
+    font-size: 12.5px;
+    transition: background .2s var(--spring);
+  }
+  .dv-allday-row.class { background: var(--class-soft); }
+  .dv-allday-row.done .dv-ar-txt { text-decoration: line-through; color: var(--ink-faint); }
+  .dv-allday-row .dv-ar-txt { flex: 1; font-weight: 500; }
+  .dv-allday-row .del {
+    cursor: pointer; color: var(--ink-faint); font-size: 11px;
+    width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    transition: background .15s var(--spring), color .15s var(--spring), transform .15s var(--spring);
+  }
+  .dv-allday-row .del:hover { background: var(--today); color: #fff; }
+  .dv-allday-row .del:active { transform: scale(.85); }
+
+  .dv-timeline-wrap { flex: 1; overflow-y: auto; padding: 10px 26px 10px 0; }
+  .dv-timeline { position: relative; margin-left: 58px; }
+  .dv-hour-line { position: absolute; left: 0; right: 0; border-top: 1px solid var(--border); }
+  .dv-hour-label {
+    position: absolute; left: -58px; width: 50px; text-align: right;
+    font-size: 10px; font-weight: 700; color: var(--ink-faint);
+    transform: translateY(-6px); padding-right: 8px;
+  }
+  .dv-now-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--today); z-index: 6; border-radius: 2px; }
+  .dv-now-line::before {
+    content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px;
+    border-radius: 50%; background: var(--today); box-shadow: 0 0 0 3px rgba(255,59,48,.18);
+  }
+  .dv-block {
+    position: absolute; left: 4px; right: 4px;
+    border-radius: 11px; padding: 6px 10px; overflow: hidden;
+    cursor: pointer; color: #fff;
+    box-shadow: 0 4px 10px -4px rgba(0,0,0,.25);
+    transition: box-shadow .2s var(--spring), transform .2s var(--spring), filter .2s var(--spring);
+  }
+  .dv-block:hover { box-shadow: var(--shadow-md); z-index: 5; transform: translateY(-1px); }
+  .dv-block:active { transform: scale(.98); }
+  .dv-block.dv-class { background: linear-gradient(155deg, var(--class-color), #4a45d1); }
+  .dv-block.dv-task { background: linear-gradient(155deg, var(--accent), #0d63c9); }
+  .dv-block.dv-done { filter: saturate(.3) brightness(1.05); }
+  .dv-block .dv-block-time { font-size: 9.5px; font-weight: 800; opacity: .88; letter-spacing: .02em; }
+  .dv-block .dv-block-title { font-size: 12.5px; font-weight: 700; line-height: 1.3; }
+  .dv-block.dv-done .dv-block-title { text-decoration: line-through; }
+  .dv-block .dv-block-tag { font-size: 9px; font-weight: 700; opacity: .85; margin-top: 2px; }
+  .dv-block-actions { position: absolute; top: 5px; right: 6px; display: flex; gap: 4px; opacity: 0; transition: opacity .15s var(--ease); }
+  .dv-block:hover .dv-block-actions { opacity: 1; }
+  .dv-mini-btn {
+    width: 19px; height: 19px; border-radius: 50%;
+    background: rgba(255,255,255,.28); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; cursor: pointer; border: none;
+    transition: background .15s var(--spring), transform .15s var(--spring);
+  }
+  .dv-mini-btn:hover { background: rgba(255,255,255,.48); }
+  .dv-mini-btn:active { transform: scale(.85); }
+  .dv-mini-chk {
+    width: 15px; height: 15px; border-radius: 50%;
+    border: 1.6px solid rgba(255,255,255,.85); background: rgba(255,255,255,.15);
+    cursor: pointer; flex-shrink: 0; position: relative;
+  }
+  .dv-block.dv-done .dv-mini-chk { background: #fff; }
+  .dv-block.dv-done .dv-mini-chk::after {
+    content: ''; position: absolute; top: 1px; left: 4px; width: 4px; height: 7px;
+    border: solid var(--class-color); border-width: 0 2px 2px 0; transform: rotate(40deg);
+  }
+  .dv-block.dv-task.dv-done .dv-mini-chk::after { border-color: var(--accent); }
+
+  .dv-addbar { padding: 14px 26px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .dv-addbar .add-btn { color: var(--ink-soft); }
+  .dv-addbar .add-form { background: rgba(0,0,0,.03); }
+
+  @media (max-width: 1000px) {
+    .grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+    .content { padding: 20px 16px 50px; }
+    .topbar { padding: 14px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- PIN screen -->
+<div class="gate" id="pinGate">
+  <div class="gate-card" id="pinCard">
+    <div class="gate-mark">A</div>
+    <h1>Aashi &amp; Parth</h1>
+    <p class="sub">Enter the shared PIN to open your calendar</p>
+    <div class="gate-error" id="pinError"></div>
+    <input type="password" id="pinInput" placeholder="••••" maxlength="12" inputmode="numeric">
+    <button class="primary" id="pinSubmit">Unlock</button>
+  </div>
+</div>
+
+<!-- Role screen -->
+<div class="gate" id="roleGate" style="display:none;">
+  <div class="gate-card">
+    <div class="gate-mark">＋</div>
+    <h1>Who's this?</h1>
+    <p class="sub">Pick your view — you can switch anytime</p>
+    <div class="role-options">
+      <button class="role-btn" data-role="aashi"><span class="avatar">A</span>I'm Aashi</button>
+      <button class="role-btn" data-role="parth"><span class="avatar">P</span>I'm Parth</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main app -->
+<div id="app">
+  <div class="topbar">
+    <div class="header">
+      <div>
+        <h1>Aashi &amp; Parth</h1>
+        <div class="sub-label" id="rangeLabel"></div>
+      </div>
+      <div class="who-pill">
+        <span class="mini-avatar" id="roleAvatar"></span>
+        Viewing as <strong id="roleName"></strong> · <a id="switchRole">switch</a>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" id="tabMine">My Calendar</button>
+      <button class="tab" id="tabOther"></button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<!-- Day view: Google-Calendar-style hourly timeline for one date -->
+<div class="dv-overlay" id="dvOverlay">
+  <div class="dv-modal">
+    <div class="dv-header">
+      <div>
+        <div class="dv-weekday" id="dvWeekday"></div>
+        <div class="dv-date" id="dvDate"></div>
+      </div>
+      <button class="dv-close" id="dvClose">✕</button>
+    </div>
+    <div class="dv-allday" id="dvAllday"></div>
+    <div class="dv-timeline-wrap">
+      <div class="dv-timeline" id="dvTimeline"></div>
+    </div>
+    <div class="dv-addbar" id="dvAddbar"></div>
+  </div>
+</div>
+
+<script>
+const API_BASE = '';
+const NAMES = { aashi: 'Aashi', parth: 'Parth' };
+const INITIALS = { aashi: 'A', parth: 'P' };
+const WEEKDAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+
+let PIN = localStorage.getItem('cal-pin') || '';
+let ROLE = localStorage.getItem('cal-role') || '';
+let activeTab = 'mine'; // 'mine' | 'other'
+let allTasks = [];
+let pollTimer = null;
+let editingCount = 0; // pause polling re-render while an inline edit form is open
+let dvOpenKey = null; // date key of the currently-open day view, or null
+
+function afterDataChange() {
+  renderApp();
+  if (dvOpenKey) renderDayView();
+}
+
+// Brief highlight pulse on a day cell right after a successful cross-day drop,
+// so the drop reads as "landed here" rather than just silently re-rendering.
+function flashSettle(key) {
+  requestAnimationFrame(() => {
+    const cell = document.querySelector('.day[data-key="' + key + '"]');
+    if (!cell) return;
+    cell.classList.remove('settle');
+    void cell.offsetWidth;
+    cell.classList.add('settle');
+  });
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (dvOpenKey) closeDayView();
+});
+
+function otherRole(r) { return r === 'aashi' ? 'parth' : 'aashi'; }
+
+// ---------- API ----------
+async function apiGet() {
+  const res = await fetch('/api/tasks?t=' + Date.now(), { headers: { 'x-app-pin': PIN }, cache: 'no-store' });
+  if (res.status === 401) { onAuthFailed(); return []; }
+  const data = await res.json();
+  return data.tasks || [];
+}
+async function apiPost(action, task) {
+  const res = await fetch('/api/tasks', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-app-pin': PIN },
+    body: JSON.stringify({ action, task }),
+    cache: 'no-store'
+  });
+  if (res.status === 401) { onAuthFailed(); return []; }
+  const data = await res.json();
+  return data.tasks || [];
+}
+function onAuthFailed() {
+  localStorage.removeItem('cal-pin');
+  PIN = '';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('roleGate').style.display = 'none';
+  document.getElementById('pinGate').style.display = 'flex';
+  document.getElementById('pinError').textContent = 'Session expired, enter PIN again.';
+}
+
+// ---------- date helpers ----------
+function dateKey(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function fmtHeaderDate(d) {
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+function formatTime12(t) {
+  if (!t) return '';
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t.trim());
+  if (!m) return t;
+  let h = parseInt(m[1], 10);
+  const min = m[2];
+  const suffix = h >= 12 ? 'p' : 'a';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return h + ':' + min + suffix;
+}
+function timeRangeLabel(ev) {
+  const start = formatTime12(ev.time);
+  if (!start) return '';
+  if (ev.type === 'class' && ev.endTime) {
+    return start + '–' + formatTime12(ev.endTime);
+  }
+  return start;
+}
+
+// ---------- PIN gate ----------
+document.getElementById('pinSubmit').onclick = submitPin;
+document.getElementById('pinInput').onkeydown = (e) => { if (e.key === 'Enter') submitPin(); };
+
+async function submitPin() {
+  const val = document.getElementById('pinInput').value.trim();
+  if (!val) return;
+  const res = await fetch('/api/auth', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ pin: val })
+  });
+  const data = await res.json().catch(() => ({ ok: false }));
+  if (data.ok) {
+    PIN = val;
+    localStorage.setItem('cal-pin', val);
+    document.getElementById('pinGate').style.display = 'none';
+    afterPinOk();
+  } else {
+    document.getElementById('pinError').textContent = 'Wrong PIN, try again.';
+    const card = document.getElementById('pinCard');
+    card.classList.remove('shake');
+    void card.offsetWidth;
+    card.classList.add('shake');
+  }
+}
+
+function afterPinOk() {
+  if (!ROLE) {
+    document.getElementById('roleGate').style.display = 'flex';
+  } else {
+    startApp();
+  }
+}
+
+document.querySelectorAll('.role-btn').forEach(btn => {
+  btn.onclick = () => {
+    ROLE = btn.dataset.role;
+    localStorage.setItem('cal-role', ROLE);
+    document.getElementById('roleGate').style.display = 'none';
+    startApp();
+  };
+});
+
+document.getElementById('switchRole').onclick = () => {
+  localStorage.removeItem('cal-role');
+  ROLE = '';
+  clearInterval(pollTimer);
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('roleGate').style.display = 'flex';
+};
+
+document.getElementById('tabMine').onclick = () => { activeTab = 'mine'; renderApp(true); };
+document.getElementById('tabOther').onclick = () => { activeTab = 'other'; renderApp(true); };
+
+// scroll-edge effect on the sticky header: divider fades in only once the
+// page has actually scrolled beneath it, instead of a permanent hard line
+(() => {
+  const topbar = document.querySelector('.topbar');
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      topbar.classList.toggle('scrolled', window.scrollY > 2);
+      ticking = false;
+    });
+  }, { passive: true });
+})();
+
+// ---------- app bootstrap ----------
+async function startApp() {
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('roleName').textContent = NAMES[ROLE];
+  document.getElementById('roleAvatar').textContent = INITIALS[ROLE];
+  document.getElementById('tabOther').textContent = NAMES[otherRole(ROLE)] + "'s Calendar";
+  allTasks = await apiGet();
+  renderApp(true);
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    if (editingCount > 0) return;
+    if (document.hidden) return; // save credits: skip polling while tab is in the background
+    allTasks = await apiGet();
+    renderApp();
+    if (dvOpenKey) renderDayView();
+  }, 60000); // 60s instead of 15s to cut function-invocation usage ~4x
+
+  // refresh immediately when the tab regains focus, so it still feels live
+  document.addEventListener('visibilitychange', async () => {
+    if (!document.hidden && editingCount === 0 && ROLE) {
+      allTasks = await apiGet();
+      renderApp();
+      if (dvOpenKey) renderDayView();
+    }
+  });
+}
+
+if (PIN) {
+  document.getElementById('pinGate').style.display = 'none';
+  afterPinOk();
+}
+
+// ---------- render ----------
+function renderApp(animate) {
+  document.getElementById('tabMine').classList.toggle('active', activeTab === 'mine');
+  document.getElementById('tabOther').classList.toggle('active', activeTab === 'other');
+
+  const owner = activeTab === 'mine' ? ROLE : otherRole(ROLE);
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - 3);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 27);
+  document.getElementById('rangeLabel').textContent =
+    fmtHeaderDate(start) + ' – ' + fmtHeaderDate(end) + ', ' + end.getFullYear() + ' · drag a task onto another day to move it';
+
+  const tasksByDate = {};
+  allTasks.filter(t => t.owner === owner).forEach(t => {
+    tasksByDate[t.date] = tasksByDate[t.date] || [];
+    tasksByDate[t.date].push(t);
+  });
+
+  for (let i = 0; i < 28; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const key = dateKey(d);
+    const isToday = key === dateKey(today);
+    const isPast = d.getTime() < today.getTime();
+
+    const cell = document.createElement('div');
+    cell.className = 'day' + (isToday ? ' today' : '') + (isPast ? ' past' : '') + (animate ? ' day-enter' : '');
+    cell.dataset.key = key;
+    if (animate) cell.style.animationDelay = (i * 14) + 'ms';
+
+    // Drop targeting for the pointer-based drag (see initDragForRow) happens via
+    // elementFromPoint + [data-key] lookup, not native HTML5 dragover/drop events.
+
+    const wd = document.createElement('div');
+    wd.className = 'weekday';
+    wd.textContent = WEEKDAYS[d.getDay()] + (isToday ? ' · TODAY' : '');
+    cell.appendChild(wd);
+
+    const dateRow = document.createElement('div');
+    dateRow.className = 'date-row';
+    dateRow.onclick = () => openDayView(key);
+    const dn = document.createElement('div');
+    dn.className = 'datenum';
+    dn.textContent = isToday ? String(d.getDate()) : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    dateRow.appendChild(dn);
+    cell.appendChild(dateRow);
+
+    const evWrap = document.createElement('div');
+    evWrap.className = 'events';
+    const dayEvents = (tasksByDate[key] || []).slice().sort((a,b) => (a.time||'').localeCompare(b.time||''));
+
+    if (dayEvents.length === 0) {
+      const note = document.createElement('div');
+      note.className = 'empty-note';
+      note.textContent = 'No tasks';
+      evWrap.appendChild(note);
+    }
+
+    dayEvents.forEach(ev => {
+      evWrap.appendChild(buildEventRow(ev, key, owner));
+    });
+    cell.appendChild(evWrap);
+
+    cell.appendChild(buildAddForm(key, owner));
+
+    grid.appendChild(cell);
+  }
+}
+
+// ---------- direct-manipulation drag (Pointer Events, 1:1 tracking) ----------
+// Replaces the old native HTML5 drag/drop. Per the Apple fluid-interfaces model:
+// respond on pointerdown, track the ghost 1:1 with the pointer (respecting the
+// grab offset, not snapping to center), and settle with a spring-style curve
+// on release rather than an abrupt re-render.
+const DRAG_THRESHOLD = 8; // px of movement before a press becomes a drag
+const REDUCE_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function initDragForRow(row, ev, originKey) {
+  row.style.touchAction = 'none';
+
+  row.addEventListener('pointerdown', (e) => {
+    if (e.button !== undefined && e.button !== 0) return; // left click / primary touch only
+    if (e.target.closest('.chk-wrap, .edit-icon, .del')) return; // let those own their own tap
+    if (row.classList.contains('editing')) return;
+
+    const pointerId = e.pointerId;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragging = false;
+    let ghost = null;
+    let originRect = null;
+    let hoveredCell = null;
+    let lastDx = 0, lastDy = 0;
+
+    function beginDrag() {
+      dragging = true;
+      editingCount++; // pause background polling while a drag is in flight
+      try { row.setPointerCapture(pointerId); } catch (err) { /* ignore */ }
+      originRect = row.getBoundingClientRect();
+      ghost = row.cloneNode(true);
+      ghost.classList.add('drag-ghost');
+      ghost.style.position = 'fixed';
+      ghost.style.left = originRect.left + 'px';
+      ghost.style.top = originRect.top + 'px';
+      ghost.style.width = originRect.width + 'px';
+      ghost.style.margin = '0';
+      ghost.style.pointerEvents = 'none'; // so elementFromPoint sees what's underneath
+      ghost.style.zIndex = '200';
+      ghost.style.transition = 'none';
+      document.body.appendChild(ghost);
+      row.classList.add('drag-source-hidden');
+    }
+
+    function updateGhostTransform(dx, dy, scale) {
+      ghost.style.transform = 'translate3d(' + dx + 'px,' + dy + 'px,0) scale(' + scale + ')';
+    }
+
+    function setHoveredCell(cell) {
+      if (cell === hoveredCell) return;
+      if (hoveredCell) hoveredCell.classList.remove('drag-over');
+      hoveredCell = cell;
+      if (hoveredCell) hoveredCell.classList.add('drag-over');
+    }
+
+    function onMove(e2) {
+      const dx = e2.clientX - startX;
+      const dy = e2.clientY - startY;
+      if (!dragging) {
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+        beginDrag();
+      }
+      lastDx = dx; lastDy = dy;
+      updateGhostTransform(dx, dy, 1.04);
+      const under = document.elementFromPoint(e2.clientX, e2.clientY);
+      setHoveredCell(under ? under.closest('.day') : null);
+    }
+
+    function cleanupListeners() {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      document.removeEventListener('keydown', onKeyDown);
+    }
+
+    function settleBack() {
+      if (!ghost) return;
+      editingCount--;
+      setHoveredCell(null);
+      if (REDUCE_MOTION) {
+        ghost.remove();
+        row.classList.remove('drag-source-hidden');
+        return;
+      }
+      ghost.style.transition = 'transform .35s var(--spring)';
+      updateGhostTransform(0, 0, 1);
+      ghost.addEventListener('transitionend', () => {
+        ghost.remove();
+        row.classList.remove('drag-source-hidden');
+      }, { once: true });
+    }
+
+    async function commitDrop(targetKey) {
+      if (!ghost) return;
+      editingCount--;
+      const g = ghost;
+      setHoveredCell(null);
+      row.classList.remove('drag-source-hidden'); // real row already reflects old state; re-render will replace it
+      if (REDUCE_MOTION) {
+        g.remove();
+      } else {
+        g.style.transition = 'transform .18s var(--spring), opacity .18s var(--spring)';
+        g.style.opacity = '0';
+        updateGhostTransform(lastDx, lastDy, 0.9);
+        g.addEventListener('transitionend', () => g.remove(), { once: true });
+      }
+      allTasks = await apiPost('update', { id: ev.id, date: targetKey });
+      afterDataChange();
+      flashSettle(targetKey);
+    }
+
+    function onUp() {
+      cleanupListeners();
+      if (!dragging) return;
+      const targetKey = hoveredCell ? hoveredCell.dataset.key : null;
+      if (targetKey && targetKey !== originKey) {
+        commitDrop(targetKey);
+      } else {
+        settleBack();
+      }
+    }
+
+    function onCancel() {
+      cleanupListeners();
+      if (dragging) settleBack();
+    }
+
+    function onKeyDown(e2) {
+      if (e2.key === 'Escape' && dragging) {
+        cleanupListeners();
+        settleBack();
+      }
+    }
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+    document.addEventListener('keydown', onKeyDown);
+  });
+}
+
+function buildEventRow(ev, key, owner) {
+  const row = document.createElement('div');
+  row.className = 'event' + (ev.done ? ' done' : '') + (ev.type === 'class' ? ' class' : '');
+  initDragForRow(row, ev, key);
+
+  const chkWrap = document.createElement('label');
+  chkWrap.className = 'chk-wrap';
+  const chk = document.createElement('input');
+  chk.type = 'checkbox';
+  chk.className = 'chk-native';
+  chk.checked = !!ev.done;
+  chk.onchange = async () => {
+    allTasks = await apiPost('update', { id: ev.id, done: chk.checked });
+    afterDataChange();
+  };
+  const chkVisual = document.createElement('span');
+  chkVisual.className = 'chk-visual';
+  chkWrap.appendChild(chk);
+  chkWrap.appendChild(chkVisual);
+
+  const timeBadge = document.createElement('span');
+  timeBadge.className = 'time-badge';
+  const timeLabel = timeRangeLabel(ev);
+  timeBadge.textContent = timeLabel;
+  if (!timeLabel) timeBadge.style.display = 'none';
+
+  const body = document.createElement('span');
+  body.className = 'body';
+  const txt = document.createElement('span');
+  txt.className = 'txt';
+  txt.textContent = ev.text;
+  body.appendChild(txt);
+  if (ev.assignedBy && ev.assignedBy !== ev.owner) {
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = 'from ' + NAMES[ev.assignedBy];
+    body.appendChild(tag);
+  }
+
+  const icons = document.createElement('span');
+  icons.className = 'icons';
+  const editIcon = document.createElement('span');
+  editIcon.className = 'edit-icon';
+  editIcon.textContent = '✎';
+  editIcon.title = 'Edit';
+  const del = document.createElement('span');
+  del.className = 'del';
+  del.textContent = '✕';
+  del.onclick = async () => {
+    allTasks = await apiPost('delete', { id: ev.id });
+    afterDataChange();
+  };
+  icons.appendChild(editIcon);
+  icons.appendChild(del);
+
+  editIcon.onclick = () => {
+    row.classList.add('editing');
+    row.draggable = false;
+    editingCount++;
+    chkWrap.style.display = 'none';
+    timeBadge.style.display = 'none';
+    body.style.display = 'none';
+    icons.style.display = 'none';
+
+    const editTime = document.createElement('input');
+    editTime.type = 'time';
+    editTime.className = 'inline-edit-time';
+    editTime.value = ev.time || '';
+
+    const editText = document.createElement('input');
+    editText.type = 'text';
+    editText.className = 'inline-edit-text';
+    editText.value = ev.text;
+
+    const actions = document.createElement('div');
+    actions.className = 'inline-actions';
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'inline-save';
+    saveBtn.textContent = 'Save';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'inline-cancel';
+    cancelBtn.textContent = 'Cancel';
+    actions.appendChild(saveBtn);
+    actions.appendChild(cancelBtn);
+
+    async function saveEdit() {
+      if (!editText.value.trim()) return;
+      editingCount--;
+      allTasks = await apiPost('update', { id: ev.id, time: editTime.value.trim(), text: editText.value.trim() });
+      afterDataChange();
+    }
+    function cancelEdit() {
+      editingCount--;
+      renderApp();
+    }
+    saveBtn.onclick = saveEdit;
+    cancelBtn.onclick = cancelEdit;
+    editText.onkeydown = (e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); };
+    editTime.onkeydown = (e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); };
+
+    row.appendChild(editTime);
+    row.appendChild(editText);
+    row.appendChild(actions);
+    editText.focus();
+  };
+
+  row.appendChild(chkWrap);
+  if (timeLabel) row.appendChild(timeBadge);
+  row.appendChild(body);
+  row.appendChild(icons);
+  return row;
+}
+
+function buildAddForm(key, owner) {
+  const wrap = document.createElement('div');
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-btn';
+  addBtn.textContent = 'Add';
+
+  const form = document.createElement('div');
+  form.className = 'add-form';
+
+  let isClass = false;
+  const typeToggle = document.createElement('div');
+  typeToggle.className = 'type-toggle';
+  const taskTypeBtn = document.createElement('button');
+  taskTypeBtn.type = 'button';
+  taskTypeBtn.className = 'type-btn active';
+  taskTypeBtn.textContent = 'Task';
+  const classTypeBtn = document.createElement('button');
+  classTypeBtn.type = 'button';
+  classTypeBtn.className = 'type-btn';
+  classTypeBtn.textContent = 'Class';
+  typeToggle.appendChild(taskTypeBtn);
+  typeToggle.appendChild(classTypeBtn);
+  form.appendChild(typeToggle);
+
+  const row = document.createElement('div');
+  row.className = 'row';
+
+  const timeField = document.createElement('div');
+  timeField.className = 'field time-field';
+  const timeLabel = document.createElement('label');
+  timeLabel.textContent = 'Start';
+  const timeInput = document.createElement('input');
+  timeInput.type = 'time';
+  timeField.appendChild(timeLabel);
+  timeField.appendChild(timeInput);
+
+  const endField = document.createElement('div');
+  endField.className = 'field time-field';
+  endField.style.display = 'none';
+  const endLabel = document.createElement('label');
+  endLabel.textContent = 'End';
+  const endInput = document.createElement('input');
+  endInput.type = 'time';
+  endField.appendChild(endLabel);
+  endField.appendChild(endInput);
+
+  const taskField = document.createElement('div');
+  taskField.className = 'field task-field';
+  const taskLabel = document.createElement('label');
+  taskLabel.textContent = 'Name';
+  const textInput = document.createElement('input');
+  textInput.type = 'text';
+  textInput.placeholder = 'Task or class name';
+  taskField.appendChild(taskLabel);
+  taskField.appendChild(textInput);
+
+  row.appendChild(timeField);
+  row.appendChild(endField);
+  row.appendChild(taskField);
+  form.appendChild(row);
+
+  taskTypeBtn.onclick = () => {
+    isClass = false;
+    taskTypeBtn.classList.add('active');
+    classTypeBtn.classList.remove('active');
+    endField.style.display = 'none';
+  };
+  classTypeBtn.onclick = () => {
+    isClass = true;
+    classTypeBtn.classList.add('active');
+    taskTypeBtn.classList.remove('active');
+    endField.style.display = 'flex';
+  };
+
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'save';
+  saveBtn.textContent = 'Save';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'cancel';
+  cancelBtn.textContent = 'Cancel';
+  actions.appendChild(saveBtn);
+  actions.appendChild(cancelBtn);
+  form.appendChild(actions);
+
+  function resetForm() {
+    form.classList.remove('open');
+    addBtn.style.display = '';
+    timeInput.value = '';
+    endInput.value = '';
+    textInput.value = '';
+    isClass = false;
+    taskTypeBtn.classList.add('active');
+    classTypeBtn.classList.remove('active');
+    endField.style.display = 'none';
+    editingCount--;
+  }
+
+  addBtn.onclick = () => {
+    form.classList.add('open');
+    addBtn.style.display = 'none';
+    editingCount++;
+    textInput.focus();
+  };
+  cancelBtn.onclick = resetForm;
+
+  async function submit() {
+    if (!textInput.value.trim()) return;
+    allTasks = await apiPost('create', {
+      owner: owner,
+      type: isClass ? 'class' : 'task',
+      date: key,
+      time: timeInput.value.trim(),
+      endTime: isClass ? endInput.value.trim() : '',
+      text: textInput.value.trim(),
+      assignedBy: ROLE
+    });
+    editingCount--;
+    afterDataChange();
+  }
+  saveBtn.onclick = submit;
+  textInput.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+
+  wrap.appendChild(addBtn);
+  wrap.appendChild(form);
+  return wrap;
+}
+
+// ---------- day view: hourly timeline (Google-Calendar-style) ----------
+function openDayView(key) {
+  dvOpenKey = key;
+  const overlay = document.getElementById('dvOverlay');
+  overlay.classList.remove('closing'); // reopening mid-close should snap open immediately, not wait
+  overlay.classList.add('open');
+  renderDayView();
+}
+function closeDayView() {
+  dvOpenKey = null;
+  const overlay = document.getElementById('dvOverlay');
+  if (REDUCE_MOTION) {
+    overlay.classList.remove('open');
+    return;
+  }
+  overlay.classList.add('closing');
+  setTimeout(() => { overlay.classList.remove('open', 'closing'); }, 200);
+}
+document.getElementById('dvClose').onclick = closeDayView;
+document.getElementById('dvOverlay').onclick = (e) => {
+  if (e.target.id === 'dvOverlay') closeDayView();
+};
+
+function formatHourLabel(h) {
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  let hh = h % 12;
+  if (hh === 0) hh = 12;
+  return hh + ' ' + suffix;
+}
+
+function buildDvAlldayRow(ev) {
+  const row = document.createElement('div');
+  row.className = 'dv-allday-row' + (ev.type === 'class' ? ' class' : '') + (ev.done ? ' done' : '');
+
+  const chk = document.createElement('input');
+  chk.type = 'checkbox';
+  chk.checked = !!ev.done;
+  chk.style.cursor = 'pointer';
+  chk.onchange = async () => {
+    allTasks = await apiPost('update', { id: ev.id, done: chk.checked });
+    afterDataChange();
+  };
+
+  const txt = document.createElement('span');
+  txt.className = 'dv-ar-txt';
+  txt.textContent = ev.text;
+
+  const del = document.createElement('span');
+  del.className = 'del';
+  del.textContent = '✕';
+  del.onclick = async () => {
+    allTasks = await apiPost('delete', { id: ev.id });
+    afterDataChange();
+  };
+
+  row.appendChild(chk);
+  row.appendChild(txt);
+  row.appendChild(del);
+  return row;
+}
+
+function buildDvBlock(ev, minHour, ROW_H) {
+  const [sh, sm] = ev.time.split(':').map(Number);
+  const startFloat = sh + sm / 60;
+
+  let durationHours = 0.5; // default marker size for a point-in-time task
+  if (ev.type === 'class' && ev.endTime) {
+    const [eh, em] = ev.endTime.split(':').map(Number);
+    const endFloat = eh + em / 60;
+    durationHours = Math.max(0.4, endFloat - startFloat);
+  }
+
+  const top = (startFloat - minHour) * ROW_H;
+  const height = Math.max(26, durationHours * ROW_H);
+
+  const block = document.createElement('div');
+  block.className = 'dv-block ' + (ev.type === 'class' ? 'dv-class' : 'dv-task') + (ev.done ? ' dv-done' : '');
+  block.style.top = top + 'px';
+  block.style.height = height + 'px';
+
+  const time = document.createElement('div');
+  time.className = 'dv-block-time';
+  time.textContent = timeRangeLabel(ev);
+  block.appendChild(time);
+
+  const title = document.createElement('div');
+  title.className = 'dv-block-title';
+  title.textContent = ev.text;
+  block.appendChild(title);
+
+  if (ev.assignedBy && ev.assignedBy !== ev.owner) {
+    const tag = document.createElement('div');
+    tag.className = 'dv-block-tag';
+    tag.textContent = 'from ' + NAMES[ev.assignedBy];
+    block.appendChild(tag);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'dv-block-actions';
+  const chkBtn = document.createElement('button');
+  chkBtn.className = 'dv-mini-btn';
+  chkBtn.type = 'button';
+  chkBtn.textContent = ev.done ? '↺' : '✓';
+  chkBtn.title = ev.done ? 'Mark not done' : 'Mark done';
+  chkBtn.onclick = async (e) => {
+    e.stopPropagation();
+    allTasks = await apiPost('update', { id: ev.id, done: !ev.done });
+    afterDataChange();
+  };
+  const delBtn = document.createElement('button');
+  delBtn.className = 'dv-mini-btn';
+  delBtn.type = 'button';
+  delBtn.textContent = '✕';
+  delBtn.title = 'Delete';
+  delBtn.onclick = async (e) => {
+    e.stopPropagation();
+    allTasks = await apiPost('delete', { id: ev.id });
+    afterDataChange();
+  };
+  actions.appendChild(chkBtn);
+  actions.appendChild(delBtn);
+  block.appendChild(actions);
+
+  return block;
+}
+
+function renderDayView() {
+  const key = dvOpenKey;
+  if (!key) return;
+  const owner = activeTab === 'mine' ? ROLE : otherRole(ROLE);
+  const d = new Date(key + 'T00:00:00');
+
+  document.getElementById('dvWeekday').textContent =
+    d.toLocaleDateString(undefined, { weekday: 'long' }) + ' · ' + NAMES[owner] + "'s calendar";
+  document.getElementById('dvDate').textContent =
+    d.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+
+  const dayTasks = allTasks.filter(t => t.owner === owner && t.date === key);
+  const untimed = dayTasks.filter(t => !t.time);
+  const timed = dayTasks.filter(t => !!t.time);
+
+  const alldayWrap = document.getElementById('dvAllday');
+  alldayWrap.innerHTML = '';
+  if (untimed.length) {
+    const label = document.createElement('div');
+    label.className = 'dv-allday-label';
+    label.textContent = 'No specific time';
+    alldayWrap.appendChild(label);
+    untimed.forEach(ev => alldayWrap.appendChild(buildDvAlldayRow(ev)));
+    alldayWrap.style.display = 'flex';
+  } else {
+    alldayWrap.style.display = 'none';
+  }
+
+  let minHour = 6, maxHour = 22;
+  timed.forEach(ev => {
+    const sh = parseInt(ev.time.split(':')[0], 10);
+    minHour = Math.min(minHour, sh);
+    let eh = sh + 1;
+    if (ev.type === 'class' && ev.endTime) {
+      const [endH, endM] = ev.endTime.split(':').map(Number);
+      eh = endH + (endM > 0 ? 1 : 0);
+    }
+    maxHour = Math.max(maxHour, eh);
+  });
+
+  const ROW_H = 56;
+  const timeline = document.getElementById('dvTimeline');
+  timeline.innerHTML = '';
+  timeline.style.height = ((maxHour - minHour) * ROW_H) + 'px';
+
+  for (let h = minHour; h <= maxHour; h++) {
+    const line = document.createElement('div');
+    line.className = 'dv-hour-line';
+    line.style.top = ((h - minHour) * ROW_H) + 'px';
+    timeline.appendChild(line);
+    if (h < maxHour) {
+      const label = document.createElement('div');
+      label.className = 'dv-hour-label';
+      label.style.top = ((h - minHour) * ROW_H) + 'px';
+      label.textContent = formatHourLabel(h);
+      timeline.appendChild(label);
+    }
+  }
+
+  if (dateKey(new Date()) === key) {
+    const now = new Date();
+    const nowHourFloat = now.getHours() + now.getMinutes() / 60;
+    if (nowHourFloat >= minHour && nowHourFloat <= maxHour) {
+      const nowLine = document.createElement('div');
+      nowLine.className = 'dv-now-line';
+      nowLine.style.top = ((nowHourFloat - minHour) * ROW_H) + 'px';
+      timeline.appendChild(nowLine);
+    }
+  }
+
+  timed.forEach(ev => {
+    timeline.appendChild(buildDvBlock(ev, minHour, ROW_H));
+  });
+
+  const addbar = document.getElementById('dvAddbar');
+  addbar.innerHTML = '';
+  addbar.appendChild(buildAddForm(key, owner));
+}
+</script>
+
+</body>
+</html>
